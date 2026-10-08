@@ -5,16 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My New Webpage</title>
     <style>
+        * {
+            margin: 0px;
+        }
         body {
             background-color: #242424;
             font-family: Arial, sans-serif;
         }
-        div {
+        .box {
             background-color: #2e2e2e;
+            position: absolute;
         }
         img {
-            width: 50vh;
-            height: 50vh;
+            position: absolute;
+            width: calc(100% - 10px);
+            aspect-ratio: 1 / 1;
+            transform: translate(-50%, -50%);
+            left: 50%;
+            top: 50%;
+        }
+        #imgBox {
+            transform: translate(-50%, 0%);
+            left: 50%;
+            height: 100%;
+            aspect-ratio: 1 / 1;
+        }
+        #toggleBox {
+            left: 10px;
+            top: 10px;
+            width: calc((100vw - 100vh)/2 - 20px);
+            height: 100px;
+        }
+        #FieldToggle {
+            position: absolute;
+            left: 5px;
+            top: 5px;
+            height: 30px;
         }
         h1 {
             color: #FFFFFF;
@@ -23,15 +49,33 @@
     </style>
 </head>
 <body>
-
-    <!-- Main Heading -->
-    <h1>Testing</h1>
-    <div>
-        <img src="https://github.com/Jerrylum/path.jerryio/blob/main/public/precache/V5RC-Override-H2H-TopDownHighlighted-TileColor66_71@0.1+2000px.png?raw=true">
+    <div class="box" id="imgBox">
+        <img src="https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideMatchField.png?raw=true" id="imgViewer">
+    </div>
+    <div class="box" id="toggleBox">
+        <button id="FieldToggle">Match</button>
     </div>
     
     
     <script>
+        const img1 = "https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideMatchField.png?raw=true";
+        const img2 = "https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideSkillsField.png?raw=true";
+        
+        const imgBox = document.getElementById("imgBox");
+        const toggleBox = document.getElementById("toggleBox");
+        const imgViewer = document.getElementById("imgViewer");
+        const fieldToggle = document.getElementById("FieldToggle");
+        
+        fieldToggle.addEventListener('click', () => {
+            if (fieldToggle.textContent == "Match") {
+                fieldToggle.textContent = "Skills";
+                imgViewer.src = img2;
+            } else {
+                fieldToggle.textContent = "Match";
+                imgViewer.src = img1;
+            }
+        });
+        
     </script>
 </body>
 </html>
