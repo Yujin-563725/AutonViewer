@@ -7,6 +7,8 @@
     <style>
         * {
             margin: 0px;
+            padding: 0px;
+            box-sizing: border-box;
         }
         body {
             background-color: #242424;
@@ -30,17 +32,61 @@
             height: 100%;
             aspect-ratio: 1 / 1;
         }
-        #toggleBox {
+        #setBox {
             left: 10px;
             top: 10px;
             width: calc((100vw - 100vh)/2 - 20px);
-            height: 100px;
+            height: 107px;
+        }
+        .element {
+            position: absolute;
+            background-color: #3E6A88;
+            border-style: solid;
+            border-radius: 1px;
+            border-width: 1px;
+            border-color: #ffffff;
+            color: #ffffff;
+        }
+        .element:hover {
+            background-color: #467290;
+            border-width: 2px;
         }
         #FieldToggle {
-            position: absolute;
             left: 5px;
             top: 5px;
+            height: 40px;
+            width: 80px;
+            
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        #autonInput {
+            left: 5px;
+            top: 60px;
+            min-height: 30px;
             height: 30px;
+            min-width: calc(100% - 20px);
+            max-width: calc(100% - 20px);
+            outline: none;
+            
+            color: #ffffff;
+            padding: 5px;
+            white-space: nowrap;
+            overflow-x: auto;
+            resize: vertical;
+        }
+        #autonInput:focus {
+            background-color: #467290;
+            border-width: 2px;
+        }
+        #logBtn {
+            left: 100px;
+            top: 5px;
+            height: 40px;
+            width: 90px;
+            cursor: pointer;
         }
         h1 {
             color: #FFFFFF;
@@ -52,30 +98,54 @@
     <div class="box" id="imgBox">
         <img src="https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideMatchField.png?raw=true" id="imgViewer">
     </div>
-    <div class="box" id="toggleBox">
-        <button id="FieldToggle">Match</button>
+    <div class="box" id="setBox">
+        <button id="FieldToggle" class="element">MATCH</button>
+        <input type="file" accept=".bin" id="logInput" style="display: none;">
+        <button id="logBtn" class="element">ADD LOG</button>
+        <textarea id="autonInput" class="element"></textarea>
     </div>
-    
-    
+
     <script>
         const img1 = "https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideMatchField.png?raw=true";
         const img2 = "https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideSkillsField.png?raw=true";
         
         const imgBox = document.getElementById("imgBox");
-        const toggleBox = document.getElementById("toggleBox");
+        const setBox = document.getElementById("setBox");
+        const autonInput = document.getElementById("autonInput");
         const imgViewer = document.getElementById("imgViewer");
         const fieldToggle = document.getElementById("FieldToggle");
+        const logInput = document.getElementById("logInput");
+        const logBtn = document.getElementById("logBtn");
         
         fieldToggle.addEventListener('click', () => {
-            if (fieldToggle.textContent == "Match") {
-                fieldToggle.textContent = "Skills";
+            if (fieldToggle.textContent === "MATCH") {
+                fieldToggle.textContent = "SKILLS";
                 imgViewer.src = img2;
             } else {
-                fieldToggle.textContent = "Match";
+                fieldToggle.textContent = "MATCH";
                 imgViewer.src = img1;
             }
         });
         
+        let initHSB = setBox.offsetHeight;
+        let initHAI = autonInput.offsetHeight;
+        function syncSetBoxHeight() {
+            setBox.style.height = (initHSB + autonInput.offsetHeight - initHAI) + "px";
+        }
+        
+        autonInput.addEventListener('mousedown', () => {
+            window.addEventListener('mousemove', syncSetBoxHeight);
+            function onMouseUp() {
+                window.removeEventListener('mousemove', syncSetBoxHeight);
+                window.removeEventListener('mouseup', onMouseUp);
+            }
+            window.addEventListener('mouseup', onMouseUp);
+        });
+        
+        // Note: Invoke the click function with () so clicking the button opens the dialog
+        logBtn.addEventListener('click', () => {
+            logInput.click();
+        });
     </script>
 </body>
 </html>
