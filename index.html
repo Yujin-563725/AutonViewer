@@ -66,20 +66,30 @@
             left: 5px;
             top: 60px;
             min-height: 30px;
-            height: 30px;
+            height: 45px;
             min-width: calc(100% - 20px);
             max-width: calc(100% - 20px);
             outline: none;
             
             color: #ffffff;
-            padding: 5px;
-            white-space: nowrap;
-            overflow-x: auto;
+            padding: 0;
+            overflow: auto;
             resize: vertical;
         }
-        #autonInput:focus {
-            background-color: #467290;
-            border-width: 2px;
+        #csvTable {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            font-family: monospace;
+            text-align: left;
+        }
+        #csvTable td {
+            border: 1px solid #ffffff;
+            padding: 4px 8px;
+            white-space: nowrap;
+        }
+        #csvTable tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.05);
         }
         #logBtn {
             left: 100px;
@@ -102,8 +112,15 @@
         <button id="FieldToggle" class="element">MATCH</button>
         <input type="file" accept=".bin" id="logInput" style="display: none;">
         <button id="logBtn" class="element">ADD LOG</button>
-        <textarea id="autonInput" class="element"></textarea>
+        <div id="autonInput" class="element">
+            <table id="csvTable">
+                <tbody>
+                    <!-- Dynamic rows populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
     </div>
+    <div class="box" id="logBox"></div>
 
     <script>
         const img1 = "https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideMatchField.png?raw=true";
@@ -142,9 +159,139 @@
             window.addEventListener('mouseup', onMouseUp);
         });
         
-        // Note: Invoke the click function with () so clicking the button opens the dialog
         logBtn.addEventListener('click', () => {
             logInput.click();
+        });
+        
+        function parseStructsToRows(buffer, isLittleEndian = true) {
+            const view = new DataView(buffer);
+            let offset = 0;
+            const parsedRows = [];
+        
+            // Helper function to prevent reading beyond buffer bounds
+            function checkBounds(requiredBytes) {
+                return (offset + requiredBytes) <= buffer.byteLength;
+            }
+        
+            while (offset < buffer.byteLength) {
+                if (!checkBounds(1)) break;
+                const typeTag = view.getUint8(offset);
+                offset += 1;
+        
+                switch (typeTag) {
+                    case 1: {
+                        offset += 3; // 3 bytes padding
+                        if (!checkBounds(84)) return parsedRows;
+                        const time = view.getUint32(offset, isLittleEndian); offset += 4;
+                        const RotY = view.getUint32(offset, isLittleEndian); offset += 4;
+                        const RotX = view.getUint32(offset, isLittleEndian); offset += 4;
+                        const RotC = view.getUint32(offset, isLittleEndian); offset += 4;
+                        offset += 4; // 4 bytes padding
+                        const DI   = view.getFloat64(offset, isLittleEndian); offset += 8;
+                        const D1   = view.getFloat64(offset, isLittleEndian); offset += 8;
+                        const D2   = view.getFloat64(offset, isLittleEndian); offset += 8;
+                        const D3   = view.getFloat64(offset, isLittleEndian); offset += 8;
+                        const D4   = view.getFloat64(offset, isLittleEndian); offset += 8;
+                        const head = view.getFloat64(offset, isLittleEndian); offset += 8;
+                        const x    = view.getFloat64(offset, isLittleEndian); offset += 8;
+                        const y    = view.getFloat64(offset, isLittleEndian); offset += 8;
+        
+                        parsedRows.push([
+                            time,
+                            "Data",
+                            x.toFixed(2),
+                            y.toFixed(2),
+                            head.toFixed(2),
+                            D1.toFixed(2),
+                            D2.toFixed(2),
+                            D3.toFixed(2),
+                            D4.toFixed(2),
+                            DI.toFixed(2),
+                            RotY,
+                            RotX,
+                            RotC
+                        ]);
+                        break;
+                    }
+        
+                    case 2: {
+                        offset += 1; // 1 byte padding
+                        if (!checkBounds(18)) return parsedRows;
+                        const id   = view.getUint16(offset, isLittleEndian); offset += 2;
+                        const time = view.getUint32(offset, isLittleEndian); offset += 4;
+                        const p    = view.getFloat32(offset, isLittleEndian); offset += 4;
+                        const i    = view.getFloat32(offset, isLittleEndian); offset += 4;
+                        const d    = view.getFloat32(offset, isLittleEndian); offset += 4;
+        
+                        // Sequence: time, "PidData", id, p, i, d
+                        parsedRows.push([
+                            time,
+                            "PidData",
+                            id,
+                            p.toFixed(3),
+                            i.toFixed(3),
+                            d.toFixed(3)
+                        ]);
+                        break;
+                    }
+        
+                    case 3: {
+                        if (!checkBounds(7)) return parsedRows;
+                        const type = view.getUint8(offset, isLittleEndian); offset += 1;
+                        const id   = view.getUint16(offset, isLittleEndian); offset += 2;
+                        const time = view.getUint32(offset, isLittleEndian); offset += 4;
+        
+                        // Sequence: time, "AutonData", id, type
+                        parsedRows.push([
+                            time,
+                            "AutonData",
+                            id,
+                            type
+                        ]);
+                        break;
+                    }
+        
+                    default:
+                        console.warn(`Unknown type tag 0x${typeTag.toString(16)} at offset ${offset - 1}`);
+                        return parsedRows;
+                }
+            }
+        
+            return parsedRows;
+        }
+
+        function displayCSVTable(rows) {
+            const tbody = document.querySelector("#csvTable tbody");
+            if (!tbody) return;
+
+            tbody.innerHTML = "";
+
+            rows.forEach(rowData => {
+                const tr = document.createElement("tr");
+                rowData.forEach(value => {
+                    const td = document.createElement("td");
+                    td.textContent = value;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+        
+        logInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+        
+            try {
+                const buffer = await file.arrayBuffer();
+                const parsedRows = parseStructsToRows(buffer, true);
+                
+                displayCSVTable(parsedRows);
+                syncSetBoxHeight();
+            } catch (err) {
+                console.error("Error parsing binary log:", err);
+            } finally {
+                logInput.value = "";
+            }
         });
     </script>
 </body>
