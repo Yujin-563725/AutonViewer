@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My New Webpage</title>
+    <title>VEX V5 Log Viewer</title>
+    <!-- Desmos API Script -->
+    <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
     <style>
         * {
             margin: 0px;
@@ -13,6 +15,9 @@
         body {
             background-color: #242424;
             font-family: Arial, sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
         }
         .box {
             background-color: #2e2e2e;
@@ -32,12 +37,17 @@
             height: 100%;
             aspect-ratio: 1 / 1;
         }
+        
+        /* Updated Main Control Container Layout */
         #setBox {
             left: 10px;
             top: 10px;
             width: calc((100vw - 100vh)/2 - 20px);
-            height: 107px;
+            height: 200px; /* Expanded height to comfortably fit 3 control rows */
+            min-width: 320px;
+            z-index: 10;
         }
+
         .element {
             position: absolute;
             background-color: #3E6A88;
@@ -47,35 +57,102 @@
             border-color: #ffffff;
             color: #ffffff;
         }
-        .element:hover {
+
+        /* Hover & Focus State Syncing */
+        button.element:hover,
+        .input-element:hover {
             background-color: #467290;
             border-width: 2px;
         }
+        .input-element:focus,
+        .input-element:active {
+            background-color: #467290;
+            border-width: 2px;
+        }
+
+        /* ROW 1: MATCH/SKILLS Toggle & ADD LOG (Split 50/50 across the top) */
         #FieldToggle {
             left: 5px;
             top: 5px;
             height: 40px;
-            width: 80px;
-            
+            width: calc(50% - 7.5px);
             display: flex;
             justify-content: center;
             align-items: center;
             cursor: pointer;
         }
+        #logBtn {
+            left: calc(50% + 2.5px);
+            top: 5px;
+            height: 40px;
+            width: calc(50% - 7.5px);
+            cursor: pointer;
+        }
+
+        /* Input Elements Common Properties */
+        .input-element {
+            height: 35px;
+            padding: 0 5px;
+            text-align: center;
+            outline: none;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .input-element::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* ROW 2: TIME JUMP Controls */
+        #timeInput {
+            left: 5px;
+            top: 50px;
+            width: calc(60% - 7.5px);
+        }
+        #jumpTimeBtn {
+            left: calc(60% + 2.5px);
+            top: 50px;
+            height: 35px;
+            width: calc(40% - 7.5px);
+            cursor: pointer;
+        }
+
+        /* ROW 3: AUTON ID JUMP & GRAPH WINDOW Controls */
+        #autonJumpInput {
+            left: 5px;
+            top: 90px;
+            width: calc(35% - 5px);
+        }
+        #jumpAutonBtn {
+            left: calc(35% + 2.5px);
+            top: 90px;
+            height: 35px;
+            width: calc(35% - 5px);
+            cursor: pointer;
+        }
+        #openGraphBtn {
+            left: calc(70% + 2.5px);
+            top: 90px;
+            height: 35px;
+            width: calc(30% - 7.5px);
+            cursor: pointer;
+        }
+
+        /* Table Container Box (Dynamically fills remaining space below controls) */
         #autonInput {
             left: 5px;
-            top: 60px;
-            min-height: 30px;
-            height: 45px;
-            min-width: calc(100% - 20px);
-            max-width: calc(100% - 20px);
+            top: 130px;
+            height: calc(100% - 135px);
+            width: calc(100% - 10px);
             outline: none;
-            
             color: #ffffff;
             padding: 0;
             overflow: auto;
             resize: vertical;
+            border: 1px solid #ffffff;
+            background-color: #3E6A88;
         }
+
+        /* Log Data Table Styling */
         #csvTable {
             width: 100%;
             border-collapse: collapse;
@@ -83,21 +160,122 @@
             font-family: monospace;
             text-align: left;
         }
+        #csvTable th {
+            background-color: #1e1e1e;
+            color: #4caf50;
+            font-weight: bold;
+            border: 1px solid #ffffff;
+            padding: 4px 8px;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
         #csvTable td {
             border: 1px solid #ffffff;
             padding: 4px 8px;
             white-space: nowrap;
         }
+        #csvTable tr {
+            cursor: pointer;
+        }
         #csvTable tr:nth-child(even) {
             background-color: rgba(255, 255, 255, 0.05);
         }
-        #logBtn {
-            left: 100px;
-            top: 5px;
-            height: 40px;
-            width: 90px;
-            cursor: pointer;
+        #csvTable tr.selected-row {
+            background-color: #467290 !important;
+            color: #ffffff;
+            font-weight: bold;
         }
+        #csvTable tr.selected-row td {
+            border-width: 2px;
+        }
+
+        /* Dynamic Floating Window Container */
+        .window-container {
+            position: absolute;
+            background-color: #2e2e2e;
+            border: 1px solid #ffffff;
+            box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            resize: both;
+            overflow: hidden;
+            min-width: 320px;
+            min-height: 260px;
+        }
+
+        .window-header {
+            height: 32px;
+            background-color: #3E6A88;
+            border-bottom: 1px solid #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 5px 0 8px;
+            cursor: move;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .window-header-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .window-controls-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background-color: #2e2e2e;
+            border-bottom: 1px solid #444;
+            flex-shrink: 0;
+        }
+
+        .window-title {
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        .win-btn {
+            background-color: #2e2e2e;
+            color: #ffffff;
+            border: 1px solid #ffffff;
+            font-size: 11px;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 1px;
+        }
+        .win-btn:hover {
+            background-color: #467290;
+        }
+
+        .desmos-wrapper {
+            flex-grow: 1;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            position: relative;
+        }
+
+        /* Fullscreen Window Overlay Mode */
+        .window-container.fullscreen {
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            resize: none !important;
+            z-index: 9999 !important;
+        }
+
         h1 {
             color: #FFFFFF;
             text-align: center;
@@ -106,27 +284,37 @@
 </head>
 <body>
     <div class="box" id="imgBox">
-        <img src="https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideMatchField.png?raw=true" id="imgViewer">
+        <img src="https://raw.githubusercontent.com/Yujin-563725/AutonViewer/main/OverrideMatchField.png" id="imgViewer">
     </div>
+    
     <div class="box" id="setBox">
+        <!-- ROW 1 -->
         <button id="FieldToggle" class="element">MATCH</button>
         <input type="file" accept=".bin" id="logInput" style="display: none;">
         <button id="logBtn" class="element">ADD LOG</button>
+        
+        <!-- ROW 2 -->
+        <input type="number" id="timeInput" class="element input-element" placeholder="Time" min="0">
+        <button id="jumpTimeBtn" class="element">JUMP</button>
+        
+        <!-- ROW 3 -->
+        <input type="number" id="autonJumpInput" class="element input-element" placeholder="Auton/PID ID" min="0">
+        <button id="jumpAutonBtn" class="element">J-ID</button>
+        <button id="openGraphBtn" class="element">GRAPH</button>
+
+        <!-- TABLE BOX -->
         <div id="autonInput" class="element">
             <table id="csvTable">
-                <tbody>
-                    <!-- Dynamic rows populated by JavaScript -->
-                </tbody>
+                <thead></thead>
+                <tbody></tbody>
             </table>
         </div>
     </div>
-    <div class="box" id="logBox"></div>
 
     <script>
-        const img1 = "https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideMatchField.png?raw=true";
-        const img2 = "https://github.com/Yujin-563725/AutonViewer/blob/main/OverrideSkillsField.png?raw=true";
+        const img1 = "https://raw.githubusercontent.com/Yujin-563725/AutonViewer/main/OverrideMatchField.png";
+        const img2 = "https://raw.githubusercontent.com/Yujin-563725/AutonViewer/main/OverrideSkillsField.png";
         
-        const imgBox = document.getElementById("imgBox");
         const setBox = document.getElementById("setBox");
         const autonInput = document.getElementById("autonInput");
         const imgViewer = document.getElementById("imgViewer");
@@ -134,6 +322,38 @@
         const logInput = document.getElementById("logInput");
         const logBtn = document.getElementById("logBtn");
         
+        const timeInput = document.getElementById("timeInput");
+        const jumpTimeBtn = document.getElementById("jumpTimeBtn");
+        
+        const autonJumpInput = document.getElementById("autonJumpInput");
+        const jumpAutonBtn = document.getElementById("jumpAutonBtn");
+        const openGraphBtn = document.getElementById("openGraphBtn");
+
+        const HEADERS = {
+            DataLog: ["Time", "Type", "X", "Y", "Heading", "D1", "D2", "D3", "D4", "DI", "RotY", "RotX", "RotC"],
+            Pid: ["Time", "Type", "ID", "Tar", "P", "I", "D"],
+            Auton: ["Time", "Type", "ID", "Type"]
+        };
+
+        let currentRowsData = [];
+        let windowCounter = 0;
+
+        function padZero(num, length) {
+            return String(num).padStart(length, '0');
+        }
+
+        function formatSignedCoord(value) {
+            const sign = value >= 0 ? '+' : '-';
+            const absVal = Math.abs(value);
+            const intPart = Math.floor(absVal);
+            const decPart = (absVal % 1).toFixed(2).substring(1);
+            return `${sign}${padZero(intPart, 2)}${decPart}`;
+        }
+
+        function formatDouble(value) {
+            return value.toFixed(2);
+        }
+
         fieldToggle.addEventListener('click', () => {
             if (fieldToggle.textContent === "MATCH") {
                 fieldToggle.textContent = "SKILLS";
@@ -162,31 +382,30 @@
         logBtn.addEventListener('click', () => {
             logInput.click();
         });
-        
+
         function parseStructsToRows(buffer, isLittleEndian = true) {
             const view = new DataView(buffer);
             let offset = 0;
             const parsedRows = [];
-        
-            // Helper function to prevent reading beyond buffer bounds
+
             function checkBounds(requiredBytes) {
                 return (offset + requiredBytes) <= buffer.byteLength;
             }
-        
+
             while (offset < buffer.byteLength) {
                 if (!checkBounds(1)) break;
                 const typeTag = view.getUint8(offset);
                 offset += 1;
-        
+
                 switch (typeTag) {
                     case 1: {
-                        offset += 3; // 3 bytes padding
+                        offset += 3;
                         if (!checkBounds(84)) return parsedRows;
                         const time = view.getUint32(offset, isLittleEndian); offset += 4;
                         const RotY = view.getUint32(offset, isLittleEndian); offset += 4;
                         const RotX = view.getUint32(offset, isLittleEndian); offset += 4;
                         const RotC = view.getUint32(offset, isLittleEndian); offset += 4;
-                        offset += 4; // 4 bytes padding
+                        offset += 4;
                         const DI   = view.getFloat64(offset, isLittleEndian); offset += 8;
                         const D1   = view.getFloat64(offset, isLittleEndian); offset += 8;
                         const D2   = view.getFloat64(offset, isLittleEndian); offset += 8;
@@ -195,69 +414,107 @@
                         const head = view.getFloat64(offset, isLittleEndian); offset += 8;
                         const x    = view.getFloat64(offset, isLittleEndian); offset += 8;
                         const y    = view.getFloat64(offset, isLittleEndian); offset += 8;
-        
-                        parsedRows.push([
-                            time,
-                            "Data",
-                            x.toFixed(2),
-                            y.toFixed(2),
-                            head.toFixed(2),
-                            D1.toFixed(2),
-                            D2.toFixed(2),
-                            D3.toFixed(2),
-                            D4.toFixed(2),
-                            DI.toFixed(2),
-                            RotY,
-                            RotX,
-                            RotC
-                        ]);
+
+                        const headInt = Math.floor(Math.abs(head));
+                        const headDec = (Math.abs(head) % 1).toFixed(2).substring(1);
+                        const formattedHead = `${head < 0 ? '-' : ''}${padZero(headInt, 3)}${headDec}`;
+
+                        parsedRows.push({
+                            type: "DataLog",
+                            rawTime: time,
+                            displayData: [
+                                padZero(time, 6),
+                                "Data",
+                                formatSignedCoord(x),
+                                formatSignedCoord(y),
+                                formattedHead,
+                                formatDouble(D1),
+                                formatDouble(D2),
+                                formatDouble(D3),
+                                formatDouble(D4),
+                                formatDouble(DI),
+                                RotY,
+                                RotX,
+                                RotC
+                            ]
+                        });
                         break;
                     }
-        
+
                     case 2: {
-                        offset += 1; // 1 byte padding
+                        offset += 1;
                         if (!checkBounds(18)) return parsedRows;
                         const id   = view.getUint16(offset, isLittleEndian); offset += 2;
                         const time = view.getUint32(offset, isLittleEndian); offset += 4;
                         const p    = view.getFloat32(offset, isLittleEndian); offset += 4;
                         const i    = view.getFloat32(offset, isLittleEndian); offset += 4;
                         const d    = view.getFloat32(offset, isLittleEndian); offset += 4;
-        
-                        // Sequence: time, "PidData", id, p, i, d
-                        parsedRows.push([
-                            time,
-                            "PidData",
-                            id,
-                            p.toFixed(3),
-                            i.toFixed(3),
-                            d.toFixed(3)
-                        ]);
+                        const tar  = view.getFloat32(offset, isLittleEndian); offset += 4;
+
+                        parsedRows.push({
+                            type: "Pid",
+                            rawTime: time,
+                            rawId: id,
+                            tar: tar,
+                            p: p,
+                            i: i,
+                            d: d,
+                            displayData: [
+                                padZero(time, 6),
+                                "Pid",
+                                padZero(id, 3),
+                                formatDouble(tar),
+                                formatDouble(p),
+                                formatDouble(i),
+                                formatDouble(d)
+                            ]
+                        });
                         break;
                     }
-        
+
                     case 3: {
                         if (!checkBounds(7)) return parsedRows;
                         const type = view.getUint8(offset, isLittleEndian); offset += 1;
                         const id   = view.getUint16(offset, isLittleEndian); offset += 2;
                         const time = view.getUint32(offset, isLittleEndian); offset += 4;
-        
-                        // Sequence: time, "AutonData", id, type
-                        parsedRows.push([
-                            time,
-                            "AutonData",
-                            id,
-                            type
-                        ]);
+
+                        parsedRows.push({
+                            type: "Auton",
+                            rawTime: time,
+                            rawId: id,
+                            displayData: [
+                                padZero(time, 6),
+                                "Auton",
+                                padZero(id, 3),
+                                padZero(type, 2)
+                            ]
+                        });
                         break;
                     }
-        
+
                     default:
                         console.warn(`Unknown type tag 0x${typeTag.toString(16)} at offset ${offset - 1}`);
                         return parsedRows;
                 }
             }
-        
+
             return parsedRows;
+        }
+
+        function updateHeader(structType) {
+            const thead = document.querySelector("#csvTable thead");
+            thead.innerHTML = "";
+            const headerRow = document.createElement("tr");
+            
+            const key = structType === "Data" ? "DataLog" : structType;
+            const cols = HEADERS[key] || [];
+            
+            cols.forEach(colText => {
+                const th = document.createElement("th");
+                th.textContent = colText;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
         }
 
         function displayCSVTable(rows) {
@@ -265,27 +522,287 @@
             if (!tbody) return;
 
             tbody.innerHTML = "";
+            updateHeader("Data");
 
-            rows.forEach(rowData => {
+            rows.forEach((rowObj, index) => {
                 const tr = document.createElement("tr");
-                rowData.forEach(value => {
+                tr.dataset.index = index;
+                
+                rowObj.displayData.forEach(value => {
                     const td = document.createElement("td");
                     td.textContent = value;
                     tr.appendChild(td);
                 });
+
+                tr.addEventListener("click", () => {
+                    tbody.querySelectorAll("tr").forEach(r => r.classList.remove("selected-row"));
+                    tr.classList.add("selected-row");
+                    updateHeader(rowObj.displayData[1]);
+                });
+
                 tbody.appendChild(tr);
             });
         }
-        
+
+        // Jump to Time Logic
+        jumpTimeBtn.addEventListener('click', () => {
+            const targetTime = parseInt(timeInput.value, 10);
+            if (isNaN(targetTime) || targetTime < 0 || currentRowsData.length === 0) return;
+
+            let closestIndex = 0;
+            let minDiff = Math.abs(currentRowsData[0].rawTime - targetTime);
+
+            for (let i = 1; i < currentRowsData.length; i++) {
+                const diff = Math.abs(currentRowsData[i].rawTime - targetTime);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIndex = i;
+                }
+            }
+
+            timeInput.value = currentRowsData[closestIndex].rawTime;
+
+            const tbody = document.querySelector("#csvTable tbody");
+            const targetTr = tbody.children[closestIndex];
+
+            if (targetTr) {
+                tbody.querySelectorAll("tr").forEach(r => r.classList.remove("selected-row"));
+                targetTr.classList.add("selected-row");
+                updateHeader(currentRowsData[closestIndex].displayData[1]);
+                targetTr.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            }
+        });
+
+        // Jump to Auton/PID ID Logic
+        jumpAutonBtn.addEventListener('click', () => {
+            const targetId = parseInt(autonJumpInput.value, 10);
+            if (isNaN(targetId) || targetId < 0 || currentRowsData.length === 0) return;
+
+            const structuredRows = currentRowsData.filter(r => r.type === "Auton" || r.type === "Pid");
+            if (structuredRows.length === 0) return;
+
+            let closestRow = structuredRows[0];
+            let minDiff = Math.abs(structuredRows[0].rawId - targetId);
+
+            for (let i = 1; i < structuredRows.length; i++) {
+                const diff = Math.abs(structuredRows[i].rawId - targetId);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestRow = structuredRows[i];
+                }
+            }
+
+            const chosenId = closestRow.rawId;
+            autonJumpInput.value = chosenId;
+
+            const fullIndex = currentRowsData.indexOf(closestRow);
+            const tbody = document.querySelector("#csvTable tbody");
+            const targetTr = tbody.children[fullIndex];
+
+            if (targetTr) {
+                tbody.querySelectorAll("tr").forEach(r => r.classList.remove("selected-row"));
+                targetTr.classList.add("selected-row");
+                updateHeader(currentRowsData[fullIndex].displayData[1]);
+                targetTr.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            }
+        });
+
+        // Dynamically Spawn Floating Desmos Graph Window
+        openGraphBtn.addEventListener('click', () => {
+            createDesmosWindow();
+        });
+
+        function createDesmosWindow() {
+            windowCounter++;
+            const winId = `desmos_win_${Date.now()}_${windowCounter}`;
+
+            const winEl = document.createElement('div');
+            winEl.className = 'window-container';
+            winEl.id = winId;
+            
+            // Cascade new windows smoothly across screen
+            const defaultLeft = Math.min(window.innerWidth - 460, 50 + (windowCounter % 8) * 30);
+            const defaultTop = Math.min(window.innerHeight - 400, 50 + (windowCounter % 8) * 30);
+            
+            winEl.style.left = `${defaultLeft}px`;
+            winEl.style.top = `${defaultTop}px`;
+            winEl.style.width = '440px';
+            winEl.style.height = '380px';
+
+            winEl.innerHTML = `
+                <div class="window-header">
+                    <span class="window-title">Desmos PID Viewer #${windowCounter}</span>
+                    <div class="window-header-controls">
+                        <button class="win-btn btn-reset" title="Reset Position">↺</button>
+                        <button class="win-btn btn-full" title="Fullscreen">⛶</button>
+                        <button class="win-btn btn-close" title="Delete Graph">✕</button>
+                    </div>
+                </div>
+                <div class="window-controls-row">
+                    <input type="number" class="element input-element win-pid-input" placeholder="PID ID" min="0" style="position:relative; width:80px; height:28px;">
+                    <button class="element win-plot-btn" style="position:relative; width:65px; height:28px; cursor:pointer;">PLOT</button>
+                </div>
+                <div class="desmos-wrapper">
+                    <div id="calculator_${winId}" style="width:100%; height:100%;"></div>
+                </div>
+            `;
+
+            document.body.appendChild(winEl);
+
+            // Bring active window to front when clicked
+            winEl.addEventListener('mousedown', () => {
+                document.querySelectorAll('.window-container').forEach(w => w.style.zIndex = '100');
+                winEl.style.zIndex = '200';
+            });
+
+            // Initialize Desmos with expression sidebar hidden by default (expressionsCollapsed: true)
+            const elt = document.getElementById(`calculator_${winId}`);
+            let calcInstance = null;
+            if (typeof Desmos !== 'undefined') {
+                calcInstance = Desmos.GraphingCalculator(elt, {
+                    keypad: false,
+                    expressionsCollapsed: true, // Auto-hide expression sidebar on launch
+                    settingsMenu: false
+                });
+                calcInstance.resize();
+            }
+
+            // Sync calculator canvas size on window resize
+            const resizeObserver = new ResizeObserver(() => {
+                if (calcInstance) calcInstance.resize();
+            });
+            resizeObserver.observe(winEl);
+
+            // Dragging Window Logic
+            const headerEl = winEl.querySelector('.window-header');
+            let isDragging = false, dragX = 0, dragY = 0;
+
+            headerEl.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('win-btn')) return;
+                isDragging = true;
+                dragX = e.clientX - winEl.offsetLeft;
+                dragY = e.clientY - winEl.offsetTop;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                winEl.style.left = `${e.clientX - dragX}px`;
+                winEl.style.top = `${e.clientY - dragY}px`;
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            // Window Header Action Buttons
+            const btnReset = winEl.querySelector('.btn-reset');
+            const btnFull = winEl.querySelector('.btn-full');
+            const btnClose = winEl.querySelector('.btn-close');
+
+            btnReset.addEventListener('click', () => {
+                winEl.classList.remove('fullscreen');
+                winEl.style.left = `${defaultLeft}px`;
+                winEl.style.top = `${defaultTop}px`;
+                winEl.style.width = '440px';
+                winEl.style.height = '380px';
+                if (calcInstance) calcInstance.resize();
+            });
+
+            btnFull.addEventListener('click', () => {
+                winEl.classList.toggle('fullscreen');
+                if (calcInstance) calcInstance.resize();
+            });
+
+            // Delete graph window on close
+            btnClose.addEventListener('click', () => {
+                resizeObserver.disconnect();
+                if (calcInstance) calcInstance.destroy();
+                winEl.remove();
+            });
+
+            // Plot Button inside Floating Window
+            const winPidInput = winEl.querySelector('.win-pid-input');
+            const winPlotBtn = winEl.querySelector('.win-plot-btn');
+
+            winPlotBtn.addEventListener('click', () => {
+                const targetId = parseInt(winPidInput.value, 10);
+                if (isNaN(targetId) || targetId < 0 || currentRowsData.length === 0) return;
+
+                const pidRows = currentRowsData.filter(r => r.type === "Pid");
+                if (pidRows.length === 0) return;
+
+                let closestPid = pidRows[0];
+                let minDiff = Math.abs(pidRows[0].rawId - targetId);
+
+                for (let i = 1; i < pidRows.length; i++) {
+                    const diff = Math.abs(pidRows[i].rawId - targetId);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestPid = pidRows[i];
+                    }
+                }
+
+                const chosenId = closestPid.rawId;
+                winPidInput.value = chosenId;
+
+                const matchingPoints = currentRowsData.filter(r => r.type === "Pid" && r.rawId === chosenId);
+                plotPointsInDesmos(calcInstance, matchingPoints);
+            });
+        }
+
+        function plotPointsInDesmos(calc, points) {
+            if (!calc || points.length === 0) return;
+
+            calc.setBlank();
+
+            const times = points.map(pt => pt.rawTime);
+            const pVals = points.map(pt => pt.p);
+            const iVals = points.map(pt => pt.i);
+            const dVals = points.map(pt => pt.d);
+
+            calc.setExpression({
+                type: 'table',
+                id: 'pidTable',
+                columns: [
+                    { latex: 'x_1', values: times },
+                    { latex: 'y_1', values: pVals, color: Desmos.Colors.RED, lines: true, points: true },
+                    { latex: 'y_2', values: iVals, color: Desmos.Colors.GREEN, lines: true, points: true },
+                    { latex: 'y_3', values: dVals, color: Desmos.Colors.BLUE, lines: true, points: true }
+                ]
+            });
+
+            let minTime = points[0].rawTime;
+            let maxTime = points[points.length - 1].rawTime;
+            if (minTime === maxTime) maxTime += 100;
+
+            let minVal = Infinity;
+            let maxVal = -Infinity;
+            points.forEach(p => {
+                minVal = Math.min(minVal, p.p, p.i, p.d);
+                maxVal = Math.max(maxVal, p.p, p.i, p.d);
+            });
+            if (minVal === maxVal) { minVal -= 1; maxVal += 1; }
+
+            const timeMargin = (maxTime - minTime) * 0.1 || 10;
+            const valMargin = (maxVal - minVal) * 0.1 || 1;
+
+            calc.setMathBounds({
+                left: minTime - timeMargin,
+                right: maxTime + timeMargin,
+                bottom: minVal - valMargin,
+                top: maxVal + valMargin
+            });
+        }
+
         logInput.addEventListener('change', async (event) => {
             const file = event.target.files[0];
             if (!file) return;
         
             try {
                 const buffer = await file.arrayBuffer();
-                const parsedRows = parseStructsToRows(buffer, true);
+                currentRowsData = parseStructsToRows(buffer, true);
                 
-                displayCSVTable(parsedRows);
+                displayCSVTable(currentRowsData);
                 syncSetBoxHeight();
             } catch (err) {
                 console.error("Error parsing binary log:", err);
