@@ -330,7 +330,7 @@
         const openGraphBtn = document.getElementById("openGraphBtn");
 
         const HEADERS = {
-            DataLog: ["Time", "Type", "X", "Y", "Heading", "D1", "D2", "D3", "D4", "DI", "RotY", "RotX", "RotC"],
+            DataLog: ["Time", "Type", "X", "Y", "Heading", "D1", "D2", "D3", "D4", "DI", "RotY", "RotX"],
             Pid: ["Time", "Type", "ID", "Tar", "P", "I", "D"],
             Auton: ["Time", "Type", "ID", "Type"]
         };
@@ -404,7 +404,6 @@
                         const time = view.getUint32(offset, isLittleEndian); offset += 4;
                         const RotY = view.getUint32(offset, isLittleEndian); offset += 4;
                         const RotX = view.getUint32(offset, isLittleEndian); offset += 4;
-                        const RotC = view.getUint32(offset, isLittleEndian); offset += 4;
                         offset += 4;
                         const DI   = view.getFloat64(offset, isLittleEndian); offset += 8;
                         const D1   = view.getFloat64(offset, isLittleEndian); offset += 8;
@@ -434,8 +433,7 @@
                                 formatDouble(D4),
                                 formatDouble(DI),
                                 RotY,
-                                RotX,
-                                RotC
+                                RotX
                             ]
                         });
                         break;
