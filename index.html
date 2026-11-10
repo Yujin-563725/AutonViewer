@@ -395,16 +395,18 @@
             while (offset < buffer.byteLength) {
                 if (!checkBounds(1)) break;
                 const typeTag = view.getUint8(offset);
-                offset += 1;
 
                 switch (typeTag) {
                     case 1: {
+                        if (!checkBounds(80)) {
+                            offset = buffer.byteLength;
+                            return parsedRows;
+                        }
+                        offset += 1;
                         offset += 3;
-                        if (!checkBounds(84)) return parsedRows;
                         const time = view.getUint32(offset, isLittleEndian); offset += 4;
                         const RotY = view.getUint32(offset, isLittleEndian); offset += 4;
                         const RotX = view.getUint32(offset, isLittleEndian); offset += 4;
-                        offset += 4;
                         const DI   = view.getFloat64(offset, isLittleEndian); offset += 8;
                         const D1   = view.getFloat64(offset, isLittleEndian); offset += 8;
                         const D2   = view.getFloat64(offset, isLittleEndian); offset += 8;
@@ -440,8 +442,12 @@
                     }
 
                     case 2: {
+                        if (!checkBounds(24)) {
+                            offset = buffer.byteLength;
+                            return parsedRows;
+                        }
                         offset += 1;
-                        if (!checkBounds(18)) return parsedRows;
+                        offset += 1;
                         const id   = view.getUint16(offset, isLittleEndian); offset += 2;
                         const time = view.getUint32(offset, isLittleEndian); offset += 4;
                         const p    = view.getFloat32(offset, isLittleEndian); offset += 4;
@@ -471,7 +477,11 @@
                     }
 
                     case 3: {
-                        if (!checkBounds(7)) return parsedRows;
+                        if (!checkBounds(8)) {
+                            offset = buffer.byteLength;
+                            break;
+                        }
+                        offset += 1;
                         const type = view.getUint8(offset, isLittleEndian); offset += 1;
                         const id   = view.getUint16(offset, isLittleEndian); offset += 2;
                         const time = view.getUint32(offset, isLittleEndian); offset += 4;
@@ -490,9 +500,11 @@
                         break;
                     }
 
-                    default:
-                        console.warn(`Unknown type tag 0x${typeTag.toString(16)} at offset ${offset - 1}`);
-                        return parsedRows;
+                    default: {
+                        console.warn(`Skipping unhandled or corrupted structural tag 0x${typeTag.toString(16)} at byte offset ${offset}`);
+                        offset += 1; 
+                        break;
+                    }
                 }
             }
 
